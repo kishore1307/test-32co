@@ -95,7 +95,6 @@ resource "aws_lb" "app_alb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = module.vpc.public_subnets
-
   enable_deletion_protection = false
 }
 
@@ -116,15 +115,42 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# HTTPS Listener (Conditional)
+# ACM Certificate with DNS Validation
 resource "aws_acm_certificate" "ssl_cert" {
   count = var.enable_https ? 1 : 0
 
   domain_name       = "*.${var.domain_name}"
   validation_method = "DNS"
+  
   lifecycle {
     create_before_destroy = true
+    ignore_changes = [domain_validation_options]
   }
+}
+
+data "aws_route53_zone" "selected" {
+  count = var.enable_https ? 1 : 0
+  name         = var.domain_name
+  private_zone = false
+}
+
+resource "aws_route53_record" "cert_validation" {
+  count = var.enable_https ? 1 : 0
+
+  for_each = {
+    for dvo in aws_acm_certificate.ssl_cert[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = data.aws_route53_zone.selected[0].zone_id
 }
 
 resource "aws_lb_listener" "https" {
@@ -207,12 +233,17 @@ resource "aws_db_subnet_group" "db_subnet_group" {
   subnet_ids = module.vpc.private_subnets
 }
 
+data "aws_rds_engine_version" "postgresql" {
+  engine  = "postgres"
+  version = var.postgres_version
+}
+
 resource "aws_db_instance" "app_db" {
   identifier             = "appdb"
   instance_class         = "db.t3.micro"
   allocated_storage      = 20
   engine                 = "postgres"
-  engine_version         = "15.5"
+  engine_version         = data.aws_rds_engine_version.postgresql.version
   db_name                = "appdb"
   username               = "admin"
   password               = var.db_password
@@ -220,16 +251,45 @@ resource "aws_db_instance" "app_db" {
   vpc_security_group_ids = [aws_security_group.db_sg.id]
   multi_az               = true
   skip_final_snapshot    = true
+  publicly_accessible    = false
+
+  depends_on = [
+    aws_secretsmanager_secret.app_secret
+  ]
 }
 
-# S3 Bucket (Modern ACL approach)
+# S3 Bucket (Modern configuration)
 resource "aws_s3_bucket" "static_assets" {
   bucket = "app-static-assets-${random_id.bucket_suffix.hex}"
 }
 
-resource "aws_s3_bucket_acl" "static_assets_acl" {
+resource "aws_s3_bucket_ownership_controls" "static_assets" {
   bucket = aws_s3_bucket.static_assets.id
-  acl    = "private"
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_policy" "static_assets" {
+  bucket = aws_s3_bucket.static_assets.id
+  policy = data.aws_iam_policy_document.static_assets.json
+}
+
+data "aws_iam_policy_document" "static_assets" {
+  statement {
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.ec2_role.arn]
+    }
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      aws_s3_bucket.static_assets.arn,
+      "${aws_s3_bucket.static_assets.arn}/*"
+    ]
+  }
 }
 
 resource "random_id" "bucket_suffix" {
