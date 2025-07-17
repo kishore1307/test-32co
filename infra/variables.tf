@@ -53,7 +53,7 @@ variable "max_size" {
 
 variable "domain_name" {
   description = "Domain name for ACM certificate"
-  default     = "example.com"
+  default     = "example.com" # CHANGE TO YOUR DOMAIN
 }
 
 variable "key_name" {
@@ -66,4 +66,9 @@ variable "enable_https" {
   description = "Enable HTTPS on ALB"
   type        = bool
   default     = true
+}
+
+variable "postgres_version" {
+  description = "PostgreSQL version"
+  default     = "15.7"
 }
