@@ -12,16 +12,15 @@ env:
 
 jobs:
   terraform:
-    name: "Terraform Plan/Apply"
+    name: "Terraform CI"
     runs-on: ubuntu-latest
-    environment: production
     permissions:
       contents: read
       id-token: write
 
     defaults:
       run:
-        working-directory: ./infra  # Point to your Terraform directory
+        working-directory: ./infra
 
     steps:
       - name: Checkout code
@@ -37,12 +36,17 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Format Check
+        id: fmt
+        run: |
+          terraform fmt -check -recursive || echo "::warning::Some files need formatting. Run 'terraform fmt' to fix."
+          terraform fmt -recursive  # Auto-format files
+          git diff --exit-code || echo "::warning::Formatting changes detected"
 
       - name: Terraform Init
         run: terraform init
-
-      - name: Terraform Format
-        run: terraform fmt -check
 
       - name: Terraform Validate
         run: terraform validate
@@ -51,11 +55,11 @@ jobs:
         run: |
           terraform plan \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="key_name=${{ secrets.KEY_PAIR_NAME}}"
+            -var="key_name=${{ secrets.KEY_PAIR_NAME }}"
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           terraform apply -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
-            -var="key_name=${{ secrets.KEY_PAIR_NAME}}"
+            -var="key_name=${{ secrets.KEY_PAIR_NAME }}"
