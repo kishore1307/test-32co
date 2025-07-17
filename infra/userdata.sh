@@ -1,4 +1,8 @@
 #!/bin/bash
+# Install dependencies
+apt update
+apt install -y nodejs npm jq awscli
+
 # Fetch secrets from Secrets Manager
 SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id ${secrets_arn} --region ${region} | jq -r .SecretString)
 
@@ -15,9 +19,7 @@ API_KEY=$API_KEY
 PORT=3000
 EOF
 
-# Install dependencies
-apt update
-apt install -y nodejs npm
+# Install app dependencies
 npm install -g pm2
 
 # Clone and run app
