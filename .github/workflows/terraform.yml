@@ -45,6 +45,10 @@ jobs:
           terraform fmt -recursive  # Auto-format files
           git diff --exit-code || echo "::warning::Formatting changes detected"
 
+  
+      - name: Terraform Destroy            
+        run: terraform destroy
+        
       - name: Terraform Init
         run: terraform init
 
@@ -63,6 +67,4 @@ jobs:
           terraform apply -auto-approve \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
             -var="key_name=${{ secrets.KEY_PAIR_NAME }}"
-  
-      - name: Terraform Destroy            
-        run: terraform destroy
+
