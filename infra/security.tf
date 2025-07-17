@@ -1,3 +1,18 @@
+# Clean up any existing secret first
+data "aws_secretsmanager_secret" "existing" {
+  name = "myapp/prod"
+}
+
+resource "null_resource" "delete_existing_secret" {
+  triggers = {
+    secret_id = data.aws_secretsmanager_secret.existing.arn
+  }
+  
+  provisioner "local-exec" {
+    command = "aws secretsmanager delete-secret --secret-id ${data.aws_secretsmanager_secret.existing.arn} --force-delete-without-recovery || true"
+  }
+}
+
 # IAM Roles
 resource "aws_iam_role" "ec2_role" {
   name = "ec2-app-role"
@@ -33,7 +48,12 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 
 # Secrets Manager
 resource "aws_secretsmanager_secret" "app_secret" {
-  name = "myapp/prod"
+  name       = "myapp/prod"
+  recovery_window_in_days = 0
+  
+  depends_on = [
+    null_resource.delete_existing_secret
+  ]
 }
 
 resource "aws_secretsmanager_secret_version" "db_creds" {
