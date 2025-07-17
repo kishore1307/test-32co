@@ -55,3 +55,15 @@ variable "domain_name" {
   description = "Domain name for ACM certificate"
   default     = "example.com"
 }
+
+variable "key_name" {
+  description = "Name of existing EC2 Key Pair"
+  type        = string
+  default     = "my-key-pair"
+}
+
+variable "enable_https" {
+  description = "Enable HTTPS on ALB"
+  type        = bool
+  default     = true
+}
