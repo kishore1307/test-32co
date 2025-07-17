@@ -13,3 +13,7 @@ output "s3_bucket" {
 output "cw_alarm_arn" {
   value = aws_cloudwatch_metric_alarm.high_cpu.arn
 }
+
+output "acm_certificate_arn" {
+  value = var.enable_https ? aws_acm_certificate.ssl_cert[0].arn : null
+}
