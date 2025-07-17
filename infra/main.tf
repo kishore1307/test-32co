@@ -5,7 +5,7 @@ provider "aws" {
 # VPC and Networking
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "5.8.1"  # Pinned to exact version with all fixes
+  version = "5.8.1"
 
   name = "app-vpc"
   cidr = var.vpc_cidr
@@ -17,19 +17,7 @@ module "vpc" {
   enable_nat_gateway     = true
   single_nat_gateway     = true
   enable_dns_hostnames   = true
-  
-  # Explicitly disable flow logs to avoid deprecation warnings
-  enable_flow_log                      = false
-  create_flow_log_cloudwatch_log_group = false
-  create_flow_log_cloudwatch_iam_role  = false
-
-  public_subnet_tags = {
-    "kubernetes.io/role/elb" = "1"
-  }
-
-  private_subnet_tags = {
-    "kubernetes.io/role/internal-elb" = "1"
-  }
+  enable_flow_log        = false
 }
 
 # Security Groups
